@@ -16,9 +16,18 @@ class CreateResidentsTable extends Migration
                     'unsigned'       => true,
                     'auto_increment' => true,
                 ],
-                'full_name' => [
+                'first_name' => [
                     'type'       => 'VARCHAR',
-                    'constraint' => 255,
+                    'constraint' => 100,
+                ],
+                'middle_name' => [
+                    'type'       => 'VARCHAR',
+                    'constraint' => 100,
+                    'null'       => true,
+                ],
+                'last_name' => [
+                    'type'       => 'VARCHAR',
+                    'constraint' => 100,
                 ],
                 'barangay' => [
                     'type'       => 'VARCHAR',
@@ -38,6 +47,7 @@ class CreateResidentsTable extends Migration
                     'null' => true,
                 ],
             ]);
+
             $this->forge->addPrimaryKey('id');
             $this->forge->createTable('residents');
         }

@@ -9,7 +9,6 @@ class ResidentsController extends BaseController
 {
     protected $perPage = 15;
 
-    // Admin: List all residents
     public function index()
     {
         if (session('role') !== 'admin') {
@@ -17,9 +16,11 @@ class ResidentsController extends BaseController
         }
 
         $model = new ResidentModel();
+        $residents = $model->orderBy('last_name', 'ASC')->paginate($this->perPage);
 
-        $residents = $model->orderBy('full_name', 'ASC')->paginate($this->perPage);
-        $uniqueBarangays = $model->select('barangay')->distinct()->findAll();
+        // Use separate instance to avoid affecting pagination query
+        $barangayModel = new ResidentModel();
+        $uniqueBarangays = $barangayModel->select('barangay')->groupBy('barangay')->findAll();
 
         $data = [
             'title'           => 'Manage Residents (Admin)',
@@ -29,11 +30,10 @@ class ResidentsController extends BaseController
             'pager'           => $model->pager
         ];
 
-        return view('residents/admin_index', $data);
+        return view('admin/pages/residents', $data);
     }
 
-    // Resident: Home / Dashboard
-    public function dashboard()
+    public function home()
     {
         if (!session()->has('user_id')) {
             return redirect()->to('/auth/login');
@@ -43,7 +43,7 @@ class ResidentsController extends BaseController
             'title' => 'Welcome, ' . esc(session('username'))
         ];
 
-        return view('residents/dashboard', $data);
+        return view('residents/pages/home', $data);
     }
 
     // Resident: My Profile
@@ -57,7 +57,7 @@ class ResidentsController extends BaseController
             'title' => 'My Profile'
         ];
 
-        return view('residents/profile', $data);
+        return view('residents/pages/profile', $data);
     }
 
     // Resident: My Pets
@@ -75,7 +75,7 @@ class ResidentsController extends BaseController
             'pets'  => $pets
         ];
 
-        return view('residents/my_pets', $data);
+        return view('residents/pages/my_pets', $data);
     }
 
     // Resident: Browse All Pets
@@ -93,7 +93,7 @@ class ResidentsController extends BaseController
             'pets'  => $pets
         ];
 
-        return view('residents/browse', $data);
+        return view('residents/pages/browse', $data);
     }
 
     // Admin Only: Delete Resident
@@ -108,4 +108,33 @@ class ResidentsController extends BaseController
 
         return redirect()->to('/admin/residents')->with('success', 'Resident deleted successfully');
     }
+
+    public function updateProfile()
+    {
+        if (!session()->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        $model = new ResidentModel();
+
+        $data = [
+            'first_name'  => $this->request->getPost('first_name'),
+            'middle_name' => $this->request->getPost('middle_name'),
+            'last_name'   => $this->request->getPost('last_name'),
+            'email'       => $this->request->getPost('email')
+        ];
+
+        $password = $this->request->getPost('password');
+        if (!empty($password)) {
+            $data['password'] = password_hash($password, PASSWORD_DEFAULT);
+        }
+
+        $model->update(session('user_id'), $data);
+
+        // Update session values
+        session()->set($data);
+
+        return redirect()->back()->with('success', 'Profile updated successfully');
+    }
+
 }

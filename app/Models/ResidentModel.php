@@ -13,7 +13,9 @@ class ResidentModel extends Model
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
     protected $allowedFields    = [
-        'full_name',
+        'first_name',
+        'middle_name',
+        'last_name',
         'barangay',
         'contact_number',
         'email',

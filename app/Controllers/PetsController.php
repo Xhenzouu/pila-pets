@@ -43,7 +43,7 @@ class PetsController extends BaseController
             'title'       => 'All Registered Pets',
         ];
 
-        return view('pets/index', $data);
+        return view('admin/pages/pets', $data);
     }
 
     // Show form to register a new pet
@@ -57,7 +57,7 @@ class PetsController extends BaseController
             'title' => 'Register New Pet',
         ];
 
-        return view('pets/create', $data);
+        return view('residents/pages/register_pet', $data);
     }
 
     // Store new pet from form submission
