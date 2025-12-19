@@ -18,18 +18,18 @@ class PetModel extends Model
         'image',
         'location',
         'contact_number',
-        'is_approved',
         'created_at'
     ];
 
     protected $useTimestamps = true;
     protected $createdField  = 'created_at';
 
-    // Join with users table for owner info
+    // Fetch pets with owner name sourced from residents (fallback to username)
     public function getPetsWithOwner()
     {
-        return $this->select('pets.*, users.username as owner_name, users.email as owner_email')
-                    ->join('users', 'users.id = pets.user_id')
+        return $this->select('pets.*, COALESCE(residents.full_name, users.username) as owner_name')
+                    ->join('users', 'users.id = pets.user_id', 'left')
+                    ->join('residents', 'residents.id = users.resident_id', 'left')
                     ->findAll();
     }
 }

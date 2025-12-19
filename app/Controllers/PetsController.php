@@ -92,7 +92,6 @@ class PetsController extends BaseController
             'image'          => $this->request->getPost('image') ?: null,
             'location'       => $this->request->getPost('location'),
             'contact_number' => $this->request->getPost('contact_number'),
-            'is_approved'    => 1, // Auto-approve for now
             'created_at'     => date('Y-m-d H:i:s'),
         ];
 
