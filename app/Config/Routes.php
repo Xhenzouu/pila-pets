@@ -26,7 +26,13 @@ $routes->group('', ['filter' => 'auth'], function($routes) {
     $routes->get('resident/browse', 'ResidentsController::browse');
     $routes->get('resident/my-pets', 'ResidentsController::myPets');
     $routes->get('resident/profile', 'ResidentsController::profile');
-    $routes->post('resident/update_profile', 'ResidentsController::updateProfile');
+    $routes->get('resident/edit_profile', 'ResidentsController::editProfile');
+    $routes->post('resident/update_profile', 'ResidentsController::updateProfilePost');
+    
+    // Resident pet management
+    $routes->get('resident/pet/edit/(:num)', 'PetsController::editPet/$1');
+    $routes->post('resident/pet/update/(:num)', 'PetsController::updatePet/$1');
+    $routes->get('resident/pet/delete/(:num)', 'PetsController::deletePet/$1');
 
     // Pet registration
     $routes->get('resident/register-pet', 'PetsController::create');

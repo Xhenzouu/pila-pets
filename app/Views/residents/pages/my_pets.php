@@ -18,35 +18,57 @@
     <?php else: ?>
         <div class="row g-4">
             <?php foreach ($pets as $pet): ?>
+                <?php 
+                $imageSrc = !empty($pet['image']) && filter_var($pet['image'], FILTER_VALIDATE_URL) 
+                    ? esc($pet['image']) 
+                    : (!empty($pet['image']) ? base_url('uploads/pets/' . $pet['image']) : '');
+                ?>
                 <div class="col-md-6 col-lg-4">
                     <div class="card shadow h-100">
-                        <?php if ($pet['image']): ?>
-                            <?php $imageSrc = preg_match('/^https?:\/\//', $pet['image']) ? $pet['image'] : base_url('uploads/pets/' . $pet['image']); ?>
-                            <img src="<?= esc($imageSrc) ?>" class="card-img-top" alt="<?= esc($pet['pet_name']) ?>" style="height: 200px; object-fit: cover;">
+                        <?php if ($imageSrc): ?>
+                            <img src="<?= $imageSrc ?>" class="card-img-top" alt="<?= esc($pet['pet_name']) ?>" style="height: 200px; object-fit: cover;">
                         <?php else: ?>
                             <div class="bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
                                 <i class="bi bi-image fs-1 text-muted"></i>
                             </div>
                         <?php endif; ?>
-                        <div class="card-body">
+
+                        <div class="card-body d-flex flex-column">
                             <h5 class="card-title"><?= esc($pet['pet_name']) ?></h5>
-                            <p class="card-text">
+                            <p class="card-text flex-grow-1">
                                 <strong>Species:</strong> <?= esc(ucfirst($pet['species'])) ?><br>
+                                <strong>Breed:</strong> <?= esc($pet['breed'] ?? 'Not specified') ?><br>
                                 <strong>Status:</strong>
                                 <span class="badge bg-<?= $pet['status'] === 'lost' ? 'danger' : ($pet['status'] === 'for_adoption' ? 'warning' : 'success') ?>">
                                     <?= ucfirst(str_replace('_', ' ', $pet['status'])) ?>
                                 </span>
                             </p>
-                            <div class="btn-group w-100">
-                                <a href="#" class="btn btn-sm btn-outline-primary">View</a>
-                                <a href="#" class="btn btn-sm btn-outline-warning">Edit</a>
-                                <button class="btn btn-sm btn-outline-danger">Delete</button>
+                            <div class="btn-group mt-auto" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#viewPetModal<?= $pet['id'] ?>">
+                                    View
+                                </button>
+                                <a href="<?= base_url('resident/pet/edit/' . $pet['id']) ?>" class="btn btn-sm btn-outline-warning">Edit</a>
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#deletePetModal"
+                                        data-pet-id="<?= $pet['id'] ?>"
+                                        data-pet-name="<?= esc($pet['pet_name']) ?>">
+                                    Delete
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Include View Modal -->
+                <?= view('residents/layouts/partials/view_pet_modal', ['pet' => $pet]) ?>
+
             <?php endforeach; ?>
         </div>
+
+        <!-- Include Shared Delete Modal (only once) -->
+        <?= view('residents/layouts/partials/delete_pet_modal') ?>
+
     <?php endif; ?>
 </div>
 <?= $this->endSection() ?>

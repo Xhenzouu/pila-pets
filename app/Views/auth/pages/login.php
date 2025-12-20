@@ -9,6 +9,7 @@
     </div>
 <?php endif; ?>
 
+<!-- General error from controller (e.g., invalid credentials) -->
 <?php if (session()->has('error')): ?>
     <div class="alert alert-danger alert-dismissible fade show">
         <?= session('error') ?>
@@ -16,14 +17,30 @@
     </div>
 <?php endif; ?>
 
+<!-- Validation errors (but hide password length rule for security) -->
 <?php if (isset($validation)): ?>
-    <div class="alert alert-danger"><?= $validation->listErrors() ?></div>
+    <div class="alert alert-danger alert-dismissible fade show">
+        <?php 
+        $errors = $validation->getErrors();
+        // Remove password length error from display (security best practice)
+        unset($errors['password']);
+        ?>
+        <?php if (!empty($errors)): ?>
+            <ul class="mb-0">
+                <?php foreach ($errors as $error): ?>
+                    <li><?= esc($error) ?></li>
+                <?php endforeach; ?>
+            </ul>
+        <?php endif; ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
 <?php endif; ?>
 
 <?= form_open('auth/login') ?>
     <div class="mb-3">
-        <label class="form-label">Username</label>
-        <input type="text" name="username" class="form-control" value="<?= old('username') ?>" placeholder="Enter username" required autofocus>
+        <label class="form-label">Username or Email</label>
+        <input type="text" name="username" class="form-control" value="<?= old('username') ?>" 
+               placeholder="Enter username or email" required autofocus>
     </div>
     <div class="mb-3">
         <label class="form-label">Password</label>

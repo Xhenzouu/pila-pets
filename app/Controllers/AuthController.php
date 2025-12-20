@@ -11,41 +11,81 @@ class AuthController extends BaseController
     {
         helper(['form', 'url']);
 
+        // If already logged in, redirect based on role
         if (session()->has('user_id') && uri_string() !== 'auth/login') {
             return $this->redirectBasedOnRole();
         }
 
         if ($this->request->getMethod() === 'POST') {
+            // Only validate that fields are filled — no password length check here
             $rules = [
-                'username' => 'required|min_length[3]|max_length[50]',
-                'password' => 'required|min_length[6]',
+                'username' => 'required',
+                'password' => 'required',
             ];
 
             if (!$this->validate($rules)) {
                 return view('auth/pages/login', ['validation' => $this->validator]);
             }
 
-            $username = $this->request->getPost('username');
-            $password = $this->request->getPost('password');
+            $loginInput = $this->request->getPost('username');
+            $password   = $this->request->getPost('password');
 
-            $model = new UserModel();
-            $user  = $model->where('username', $username)->first();
+            $userModel = new UserModel();
 
-            if ($user && password_verify($password, $user['password'])) {
-                session()->set([
-                    'user_id'     => $user['id'],
-                    'username'    => $user['username'],
-                    'role'        => $user['role'] ?? 'user',
-                    'resident_id' => $user['resident_id'],
-                    'logged_in'   => true,
+            // Try to find user by username OR email
+            $user = $userModel->where('username', $loginInput)
+                              ->orWhere('email', $loginInput)
+                              ->first();
+
+            // Always show generic message — don't reveal if username exists or password is wrong
+            if (!$user || !password_verify($password, $user['password'])) {
+                return view('auth/pages/login', [
+                    'error' => 'Invalid login credentials. Please try again.',
+                    'old_username' => $loginInput
                 ]);
-                return $this->redirectBasedOnRole();
             }
 
-            return view('auth/pages/login', [
-                'error' => 'Invalid username or password.',
-                'old_username' => $username
-            ]);
+            // Login successful
+            $role = $user['role'] ?? 'user';
+
+            $sessionData = [
+                'user_id'   => $user['id'],
+                'username'  => $user['username'],
+                'email'     => $user['email'] ?? '',
+                'role'      => $role,
+                'logged_in' => true,
+            ];
+
+            // Load resident data for regular users
+            if ($role !== 'admin' && !empty($user['resident_id'])) {
+                $fullUserData = $userModel->getUserWithResident($user['id']);
+                if ($fullUserData) {
+                    $sessionData += [
+                        'resident_id'    => $fullUserData['resident_id'],
+                        'first_name'     => $fullUserData['first_name'] ?? '',
+                        'middle_name'    => $fullUserData['middle_name'] ?? '',
+                        'last_name'      => $fullUserData['last_name'] ?? '',
+                        'contact_number' => $fullUserData['contact_number'] ?? '',
+                        'barangay'       => $fullUserData['barangay'] ?? '',
+                        'created_at'     => $fullUserData['created_at'] ?? date('Y-m-d H:i:s')
+                    ];
+                }
+            } else {
+                // Admin defaults
+                $sessionData += [
+                    'resident_id'    => null,
+                    'first_name'     => 'Admin',
+                    'middle_name'    => '',
+                    'last_name'      => 'User',
+                    'contact_number' => '',
+                    'barangay'       => 'Pila, Laguna',
+                    'created_at'     => $user['created_at'] ?? date('Y-m-d H:i:s')
+                ];
+            }
+
+            session()->set($sessionData);
+
+            return $this->redirectBasedOnRole();
         }
 
         return view('auth/pages/login');
@@ -64,7 +104,7 @@ class AuthController extends BaseController
                 'password'         => 'required|min_length[6]',
                 'confirm_password' => 'required|matches[password]',
                 'barangay'         => 'required',
-                'contact_number'   => 'required|min_length[10]',
+                'contact_number'   => 'required|min_length[10]|max_length[11]',
             ];
 
             if (!$this->validate($rules)) {
@@ -72,7 +112,7 @@ class AuthController extends BaseController
             }
 
             $residentModel = new ResidentModel();
-            $userModel = new UserModel();
+            $userModel     = new UserModel();
 
             $residentId = $residentModel->insert([
                 'first_name'     => $this->request->getPost('first_name'),
@@ -84,13 +124,22 @@ class AuthController extends BaseController
                 'created_at'     => date('Y-m-d H:i:s')
             ]);
 
-            $userModel->insert([
+            if (!$residentId) {
+                return view('auth/pages/register', ['error' => 'Failed to create resident record.']);
+            }
+
+            $userInserted = $userModel->insert([
                 'username'    => $this->request->getPost('username'),
                 'email'       => $this->request->getPost('email'),
                 'password'    => password_hash($this->request->getPost('password'), PASSWORD_DEFAULT),
                 'role'        => 'user',
-                'resident_id' => $residentId
+                'resident_id' => $residentId,
+                'created_at'  => date('Y-m-d H:i:s')
             ]);
+
+            if (!$userInserted) {
+                return view('auth/pages/register', ['error' => 'Failed to create user account.']);
+            }
 
             return redirect()->to('/auth/login')->with('success', 'Account created successfully! Please log in.');
         }
@@ -108,15 +157,9 @@ class AuthController extends BaseController
                 return view('auth/pages/forgot_password', ['validation' => $this->validator]);
             }
 
-            $email = $this->request->getPost('email');
-            $userModel = new UserModel();
-            $user = $userModel->where('email', $email)->first();
-
-            if (!$user) {
-                return view('auth/pages/forgot_password', ['error' => 'No account found with that email.']);
-            }
-
-            return view('auth/pages/forgot_password', ['success' => 'If an account exists, a password reset link has been sent.']);
+            return view('auth/pages/forgot_password', [
+                'success' => 'If an account exists with that email, a password reset link has been sent.'
+            ]);
         }
 
         return view('auth/pages/forgot_password');
@@ -125,7 +168,7 @@ class AuthController extends BaseController
     public function logout()
     {
         session()->destroy();
-        return redirect()->to('/auth/login')->with('success', 'Logged out successfully.');
+        return redirect()->to('/auth/login')->with('success', 'You have been logged out successfully.');
     }
 
     private function redirectBasedOnRole()

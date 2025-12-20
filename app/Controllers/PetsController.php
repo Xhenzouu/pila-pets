@@ -97,7 +97,7 @@ class PetsController extends BaseController
 
         $this->petModel->insert($data);
 
-        return redirect()->to('/pets')->with('success', 'Pet successfully registered!');
+        return redirect()->to('/resident/my-pets')->with('success', 'Pet successfully registered!');
     }
 
     // Show edit form for a specific pet
@@ -160,7 +160,7 @@ class PetsController extends BaseController
             'breed'          => $this->request->getPost('breed'),
             'status'         => $this->request->getPost('status'),
             'description'    => $this->request->getPost('description'),
-            'image'          => $this->request->getPost('image') ?: null,
+            'image'          => $this->request->getPost('image') ?: $pet['image'],
             'location'       => $this->request->getPost('location'),
             'contact_number' => $this->request->getPost('contact_number'),
         ];
@@ -192,4 +192,108 @@ class PetsController extends BaseController
 
         return redirect()->to('/pets')->with('success', 'Pet record deleted successfully.');
     }
+
+    // Resident: Edit own pet
+    public function editPet($id)
+    {
+        if (!session()->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        $pet = $this->petModel->find($id);
+
+        if (!$pet || $pet['user_id'] != session('user_id')) {
+            return redirect()->to('/resident/my-pets')->with('error', 'Pet not found or access denied.');
+        }
+
+        $data = [
+            'title' => 'Edit Pet',
+            'pet'   => $pet
+        ];
+
+        return view('residents/pages/edit_pet', $data);
+    }
+
+    // Resident: Update own pet
+    public function updatePet($id)
+    {
+        if (!session()->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        $pet = $this->petModel->find($id);
+        if (!$pet || $pet['user_id'] != session('user_id')) {
+            return redirect()->to('/resident/my-pets')->with('error', 'Access denied.');
+        }
+
+        // Same validation as store()
+        $rules = [ /* same as in store() */ ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('validation', $this->validator);
+        }
+
+        $data = [ /* same fields as store() */ ];
+        $this->petModel->update($id, $data);
+
+        return redirect()->to('/resident/my-pets')->with('success', 'Pet updated successfully!');
+    }
+
+    // Resident: Delete own pet
+    public function deletePet($id)
+    {
+        if (!session()->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        $pet = $this->petModel->find($id);
+        if (!$pet || $pet['user_id'] != session('user_id')) {
+            return redirect()->to('/resident/my-pets')->with('error', 'Access denied.');
+        }
+
+        $this->petModel->delete($id);
+        return redirect()->to('/resident/my-pets')->with('success', 'Pet deleted successfully.');
+    }
+
+    public function browse()
+    {
+        if (!session()->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        $petModel = new PetModel();
+
+        $query = $petModel->select('pets.*, 
+            COALESCE(
+                CONCAT(residents.first_name, " ", IFNULL(CONCAT(residents.middle_name, " "), ""), residents.last_name), 
+                users.username
+            ) as owner_name')
+            ->join('users', 'users.id = pets.user_id', 'left')
+            ->join('residents', 'residents.id = users.resident_id', 'left');
+
+        // Search by name or breed
+        if ($search = $this->request->getGet('search')) {
+            $query->groupStart()
+                ->like('pet_name', $search)
+                ->orLike('breed', $search)
+                ->groupEnd();
+        }
+
+        // Filter by status
+        if ($status = $this->request->getGet('status')) {
+            $query->where('status', $status);
+        }
+
+        $pets = $query->findAll();
+
+        $data = [
+            'title'         => 'Browse All Pets',
+            'pets'          => $pets,
+            'currentSearch' => $this->request->getGet('search') ?? '',
+            'currentStatus' => $this->request->getGet('status') ?? ''
+        ];
+
+        return view('residents/pages/browse', $data);
+    }
+
 }

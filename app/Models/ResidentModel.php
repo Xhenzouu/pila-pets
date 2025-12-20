@@ -18,9 +18,15 @@ class ResidentModel extends Model
         'last_name',
         'barangay',
         'contact_number',
-        'email',
+        'email',        // ← Add this line
         'created_at'
     ];
 
     protected $useTimestamps = false;
+
+    // Optional: Helpful method to get full resident data
+    public function getResidentById($id)
+    {
+        return $this->find($id);
+    }
 }
